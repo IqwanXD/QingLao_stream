@@ -4,6 +4,7 @@ const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 8080;
 const MAX_BUFFERED = 64 * 1024; // lewati peer yang tertinggal agar tidak menumpuk
+const MAX_PEERS = Number(process.env.MAX_PEERS) || 6; // batas peserta per room, sesuai CPU 0.1 vCPU
 const wss = new WebSocketServer({ port: PORT, maxPayload: 64 * 1024 });
 const rooms = new Map(); // roomName -> Map<peerId, { ws, name }>
 
@@ -48,6 +49,11 @@ wss.on('connection', (ws) => {
       const room = String(msg.room || 'default');
       if (!rooms.has(room)) rooms.set(room, new Map());
       const peers = rooms.get(room);
+      if (peers.size >= MAX_PEERS) {
+        sendJson(ws, { type: 'full' });
+        ws.close();
+        return;
+      }
 
       me = { id: msg.peerId, room, name: String(msg.name || 'Anon').slice(0, 40) };
 
